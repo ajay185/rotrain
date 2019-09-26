@@ -16,4 +16,5 @@ spec:
     spec:
       containers:
       - image: gcr.io/PROJECT_ID/server:v0.VERSION_NUMBER
+        name: server-sha256
         
