@@ -1,0 +1,53 @@
+pipeline {
+    agent any
+    environment {
+        PROJECT_ID = '<project_id_value>'
+    }
+    stages {
+        stage('initialize') {
+            steps{
+                echo "${BUILD_NUMBER}"
+                sh "node -v"
+                sh "docker -v"
+                sh "npm -v"
+                sh "gcloud version"
+            }
+        }
+        stage('Checkout') {
+            steps {
+                git branch: "master", url: "<github-repo-url>"
+            }
+        }
+        stage('Build') {
+                steps {
+                    dir("${WORKSPACE}/server") {
+                        echo 'Node Js Steps'
+                        sh 'npm install'
+                        sh 'npm test'
+                        sh ''
+                    }
+                }
+        }
+        stage('Yaml Change') {
+                steps {
+                     dir("${WORKSPACE}/server") {
+                        echo 'YAML changes'
+                        echo 'Replace Project ID from yaml'
+                        sh "sed -i 's/PROJECT_ID/${PROJECT_ID}/g' kubernetes-config.yaml"
+                        sh "sed -i 's/VERSION_NUMBER/${BUILD_NUMBER}/g' kubernetes-config.yaml"
+                        sh 'cat kubernetes-config.yaml'
+                     }
+                }
+        }
+        stage('Gcloud') {
+                steps {
+                     dir("${WORKSPACE}/server") {
+                        echo 'Upload images and reflect changes'
+                        sh 'gcloud builds submit --tag gcr.io/${PROJECT_ID}/server:v0.$BUILD_NUMBER .'
+                        sh 'gcloud container clusters get-credentials devops-demo --zone us-central1-a --project ${PROJECT_ID}'
+                        sh 'kubectl apply -f kubernetes-config.yaml'
+                     }
+                }
+        }
+    }
+}
